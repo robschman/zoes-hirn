@@ -49,7 +49,7 @@ function reminderDays(i){
 }
 
 /* ---------- Zustand ---------- */
-let items = [], tab = 'cal', selDay = null, form = null, confirmDel = false, busy = false;
+let items = [], tab = 'cal', selDay = null, blk = 0, form = null, confirmDel = false, busy = false;
 let fotoUrls = {}, channel = null, toastTimer = null;
 const $ = id => document.getElementById(id);
 const $view = $('view'), $sheet = $('sheet'), $bg = $('sheetBg');
@@ -58,6 +58,7 @@ const ico = {
   cam:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
   chk:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>',
   bell:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>',
+  fwd:'<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>',
   back:'<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>'
 };
 const open = () => items.filter(i => !i.erledigt);
@@ -104,47 +105,43 @@ const heuteText = () => 'Heute: ' + ['Sonntag','Montag','Dienstag','Mittwoch','D
 
 function row(i){
   const k = KIND[i.art], n = diff(i.faellig), d = parse(i.faellig);
+  const zeit = i.erledigt ? '✓ erledigt' : cd(n);
   return `<button class="row" data-act="detail" data-id="${i.id}">
     <span class="date k-${k.c}"><small>${WD[d.getDay()]}</small><b>${d.getDate()}.</b></span>
     <span class="mid"><span class="t1">${SUBJ[i.fach].n} · ${what(i)}${i.art==='ha'?' fällig':''}</span><span class="t2">${i.foto?'📷 ':''}${esc(i.text||'Foto')}</span></span>
-    <span class="cd ${n<=2?'hot':''}">${cd(n)}</span></button>`;
+    <span class="cd ${!i.erledigt&&n<=2?'hot':''}">${zeit}</span></button>`;
 }
 
-function renderBell(){
-  const r = [];
-  open().forEach(i => reminderDays(i).forEach(on => { if (on>=T && diff(on)<=2 && i.faellig>on) r.push({on, i}); }));
-  if (!r.length) return '';
-  r.sort((a,b) => a.on.localeCompare(b.on) || a.i.faellig.localeCompare(b.i.faellig));
-  const lab = s => s===T ? 'Heute' : s===iso(add(today,1)) ? 'Morgen' : wdm(s).slice(0,6);
-  const bis = x => { const n = Math.round((parse(x.i.faellig)-parse(x.on))/864e5); return n===1 ? 'morgen' : 'in '+n+' Tagen'; };
-  return `<div class="bell"><div class="bell-h">${ico.bell}Erinnerungen</div>${r.slice(0,5).map(x =>
-    `<button data-act="detail" data-id="${x.i.id}"><span class="when">${lab(x.on)}</span><span class="what">${SUBJ[x.i.fach].n} ${what(x.i)} ${bis(x)}</span></button>`).join('')}
-    ${r.length>5?`<div style="font-size:13px;font-weight:800">+ ${r.length-5} weitere</div>`:''}</div>`;
-}
-
+const BLK_MAX = 4; /* 4 × 3 Wochen = 12 Wochen ≈ 3 Monate vor und zurück */
 function renderCal(){
   let start = add(today, -((today.getDay()+6)%7));
   if (isWe(today)) start = add(start,7);
+  start = add(start, blk*21);
   const days = []; for (let w=0; w<3; w++) for (let d=0; d<5; d++) days.push(iso(add(start, w*7+d)));
   const o = open();
-  let h = renderBell();
+  const imKal = s => items.filter(i => i.faellig===s && (!i.erledigt || s<T));
+  const jahr = parse(days[14]).getFullYear();
+  let h = `<div class="blk-top"><b>${dm(days[0])} – ${dm(days[14])}${jahr}</b>${blk?`<button class="back" data-act="blk" data-n="0">Heute</button>`:''}</div>`;
   h += '<div class="wk-head">'+['Mo','Di','Mi','Do','Fr'].map(x=>`<span>${x}</span>`).join('')+'</div><div class="grid">';
   days.forEach((s,ix) => {
-    const its = o.filter(i => i.faellig===s).sort((a,b) => (a.art==='ha') - (b.art==='ha'));
+    const its = imKal(s).sort((a,b) => (a.erledigt - b.erledigt) || ((a.art==='ha') - (b.art==='ha')));
     const d = parse(s), first = ix===0 || (d.getDate()<=3 && ix%5===0) || d.getDate()===1;
     const cls = ['day', s===T?'today':'', s<T?'past':'', selDay===s?'sel':''].join(' ');
     h += `<button class="${cls}" data-act="day" data-d="${s}" aria-label="${wdm(s)}"><span class="n">${d.getDate()}.${first?(d.getMonth()+1)+'.':''}</span>`;
     const show = its.length>4 ? its.slice(0,3) : its;
-    show.forEach(i => h += `<span class="pill k-${KIND[i.art].c}">${SUBJ[i.fach].a} ${KIND[i.art].s}</span>`);
+    show.forEach(i => h += `<span class="pill k-${KIND[i.art].c}${i.erledigt?' done':''}">${SUBJ[i.fach].a} ${KIND[i.art].s}</span>`);
     if (its.length>4) h += `<span class="more">+${its.length-3} mehr</span>`;
     h += '</button>';
   });
-  h += '</div><div class="legend"><span class="pill k-ha">Hausaufgabe</span><span class="pill k-sa">Schularbeit</span><span class="pill k-test">Test</span><span class="pill k-learn">Kleiner Test</span></div>';
+  h += '</div>';
+  const nb = (n, txt, dis) => `<button class="blk-btn" data-act="blk" data-n="${n}"${dis?' disabled':''}>${txt}</button>`;
+  h += `<div class="blk-nav">${nb(blk-1, ico.back+'3 Wochen zurück', blk<=-BLK_MAX)}${nb(blk+1, '3 Wochen weiter'+ico.fwd, blk>=BLK_MAX)}</div>`;
+  h += '<div class="legend"><span class="pill k-ha">Hausaufgabe</span><span class="pill k-sa">Schularbeit</span><span class="pill k-test">Test</span><span class="pill k-learn">Kleiner Test</span></div>';
   const overdue = o.filter(i => i.faellig<T);
-  const list = selDay ? byDue(o.filter(i => i.faellig===selDay)) : byDue(o.filter(i => i.faellig>=T && i.faellig<=days[14]));
-  if (!selDay && overdue.length) h += `<div class="sec"><h3>Noch offen von früher</h3></div>` + byDue(overdue).map(row).join('');
-  h += `<div class="sec" id="listTop"><h3>${selDay ? wdm(selDay) : 'Was kommt'}</h3>${selDay?`<button class="back" data-act="all">${ico.back}Ganze Übersicht</button>`:''}</div>`;
-  h += list.length ? list.map(row).join('') : `<div class="empty">${selDay?'An diesem Tag ist nichts fällig.':'Nichts eingetragen. Tippe oben auf „+“.'}</div>`;
+  const list = selDay ? byDue(imKal(selDay)) : blk ? byDue(items.filter(i => i.faellig>=days[0] && i.faellig<=days[14] && (!i.erledigt || i.faellig<T))) : byDue(o.filter(i => i.faellig>=T && i.faellig<=days[14]));
+  if (!selDay && !blk && overdue.length) h += `<div class="sec"><h3>Noch offen von früher</h3></div>` + byDue(overdue).map(row).join('');
+  h += `<div class="sec" id="listTop"><h3>${selDay ? wdm(selDay) : blk ? 'In diesen 3 Wochen' : 'Was kommt'}</h3>${selDay?`<button class="back" data-act="all">${ico.back}Ganze Übersicht</button>`:''}</div>`;
+  h += list.length ? list.map(row).join('') : `<div class="empty">${selDay?'An diesem Tag ist nichts fällig.':blk ? 'In diesen 3 Wochen ist nichts eingetragen.' : 'Nichts eingetragen. Tippe oben auf „+“.'}</div>`;
   $view.innerHTML = h;
 }
 
@@ -362,7 +359,7 @@ async function setDone(id, wert){
 /* ---------- Klicks ---------- */
 document.getElementById('app').addEventListener('click', async e => {
   const t = e.target.closest('[data-tab],[data-act]'); if (!t) return;
-  if (t.dataset.tab){ tab = t.dataset.tab; selDay = null; render(); $view.scrollTop = 0; return; }
+  if (t.dataset.tab){ tab = t.dataset.tab; selDay = null; blk = 0; render(); $view.scrollTop = 0; return; }
   const a = t.dataset.act, id = t.dataset.id;
   if (form){ const ta = $('fText'); if (ta) form.text = ta.value; }
   switch (a){
@@ -370,6 +367,7 @@ document.getElementById('app').addEventListener('click', async e => {
       selDay = t.dataset.d!==selDay ? t.dataset.d : null; render();
       if (selDay){ const l = $('listTop'); if (l) $view.scrollTo({ top:l.offsetTop-70, behavior:'smooth' }); }
       break;
+    case 'blk': blk = Math.max(-BLK_MAX, Math.min(BLK_MAX, +t.dataset.n)); selDay = null; render(); $view.scrollTo({ top:0, behavior:'smooth' }); break;
     case 'all': selDay = null; render(); $view.scrollTo({ top:0, behavior:'smooth' }); break;
     case 'detail': confirmDel = false; form = null; openDetail(id); break;
     case 'edit': openEdit(id); break;
