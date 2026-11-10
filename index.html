@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Zoe's Hirn</title>
+<meta name="description" content="Hausaufgaben, Schularbeiten und Tests von Zoe auf einen Blick.">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Zoe's Hirn">
+<meta name="robots" content="noindex">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Nunito:wght@600;700;800&display=swap">
+<link rel="stylesheet" href="app.css?v=1">
+</head>
+<body>
+<div id="app">
+  <!-- Start: wird geladen -->
+  <div id="laden" class="laden"><img src="icons/icon-192.png" alt="" width="96" height="96"></div>
+
+  <!-- Anmeldung -->
+  <section id="login" class="login" hidden>
+    <img src="icons/icon-192.png" alt="Zoe's Hirn" width="112" height="112" class="login-logo">
+    <h1>Zoe's Hirn</h1>
+    <p id="loginText">Mit dem Familien-Konto anmelden.</p>
+    <form id="loginForm" autocomplete="on">
+      <label for="email">E-Mail</label>
+      <input id="email" type="email" autocomplete="username" required inputmode="email">
+      <label for="pass">Passwort</label>
+      <input id="pass" type="password" autocomplete="current-password" required minlength="8">
+      <div id="loginErr" class="err" hidden></div>
+      <button class="btn pri" id="loginBtn" type="submit">Anmelden</button>
+    </form>
+    <button class="link" id="loginModus" type="button">Erstes Mal? Familien-Konto anlegen</button>
+  </section>
+
+  <!-- Hauptansicht -->
+  <div id="main" class="main" hidden>
+    <header class="kopf">
+      <div><div class="titel">Zoe's Hirn</div><div class="datum" id="heuteLbl"></div></div>
+      <div class="kopf-knoepfe">
+        <button class="rund hell" data-act="settings" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+        <button class="rund" data-act="add" aria-label="Neuer Eintrag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+      </div>
+    </header>
+    <nav class="tabs" role="tablist">
+      <button data-tab="cal" class="on" role="tab">Kalender</button>
+      <button data-tab="ha" role="tab">Hausaufgaben</button>
+      <button data-tab="tm" role="tab">Prüfungen</button>
+    </nav>
+    <div id="offline" class="offline" hidden>Keine Verbindung. Du siehst den letzten Stand.</div>
+    <main class="view" id="view"></main>
+  </div>
+
+  <div class="sheet-bg" id="sheetBg" data-act="close" hidden></div>
+  <section class="sheet" id="sheet" hidden role="dialog" aria-modal="true"></section>
+  <div class="toast" id="toast" hidden></div>
+</div>
+<script src="vendor/supabase-2.118.0.js"></script>
+<script src="app.js?v=1"></script>
+</body>
+</html>
