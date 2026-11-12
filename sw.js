@@ -1,5 +1,5 @@
 /* Zoe's Hirn – Service Worker: App offline öffnen und Push-Mitteilungen anzeigen */
-const CACHE = 'zh-v2';
+const CACHE = 'zh-v3';
 const SHELL = ['./', 'index.html', 'app.css', 'app.js', 'vendor/supabase-2.118.0.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-180.png', 'icons/icon.svg'];
 
 self.addEventListener('install', e => {

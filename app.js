@@ -61,7 +61,10 @@ const ico = {
   fwd:'<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>',
   back:'<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>'
 };
-const open = () => items.filter(i => !i.erledigt);
+/* Ein Eintrag ist ab 16:00 an seinem Fälligkeitstag vorbei und verschwindet aus den Listen */
+const vorbei16 = () => new Date().getHours() >= 16;
+const aktiv = i => !i.erledigt && (i.faellig > T || (i.faellig === T && !vorbei16()));
+const open = () => items.filter(aktiv);
 const byDue = arr => arr.slice().sort((a,b) => a.faellig.localeCompare(b.faellig));
 const what = i => KIND[i.art].n;
 const kindColor = k => getComputedStyle(document.documentElement).getPropertyValue('--'+KIND[k].c).trim();
@@ -75,7 +78,7 @@ function demoDaten(){
     ['ha','M','Buch S. 54, Nr. 3–7',-1,w(2)],['ha','M','Arbeitsblatt Brüche',0,w(6)],['ha','D','Nacherzählung „Der Fuchs“',-2,w(1)],
     ['ha','E','Workbook p. 38, ex. 1–3',-1,w(3)],['ha','BIO','Blatt einkleben',-1,w(2)],['ha','LC','Wochenplan ausfüllen',0,w(2)],
     ['sa','M','Brüche, Dezimalzahlen (S. 30–58)',-10,w(7)],['vok','E','Unit 3, S. 120–122',-2,w(4)],['test','BIO','Der Wald',-5,w(5)],
-    ['ged','D','„Herbsttag“ auswendig',-6,w(11)],['swh','MU','Instrumente des Orchesters',-1,w(2)]
+    ['ged','D','„Herbsttag“ auswendig',-6,w(11)],['swh','MU','Instrumente des Orchesters',-1,w(2)],['ha','GEO','Karte Europa beschriften',-2,r(0)]
   ].map(([art,fach,text,e,f],k) => ({ id:'demo'+k, art, fach, text, foto:null, eingetragen:r(e), faellig:f, erledigt:false, erledigt_am:null }));
 }
 
@@ -100,6 +103,14 @@ document.addEventListener('visibilitychange', () => {
 });
 window.addEventListener('online', () => { if (!$('main').hidden) load(); });
 
+/* Um 16:00 (heutige Einträge verschwinden) und nach Mitternacht neu zeichnen, auch wenn die App offen bleibt */
+let uhrStand = '';
+setInterval(() => {
+  const jetzt = new Date(), st = iso(jetzt) + (jetzt.getHours() >= 16 ? 'b' : 'a');
+  if (uhrStand && st !== uhrStand && !$('main').hidden){ setToday(); $('heuteLbl').textContent = heuteText(); render(); }
+  uhrStand = st;
+}, 30000);
+
 /* ---------- Ansichten ---------- */
 const heuteText = () => 'Heute: ' + ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'][today.getDay()] + ', ' + dm(T);
 
@@ -119,7 +130,7 @@ function renderCal(){
   start = add(start, blk*21);
   const days = []; for (let w=0; w<3; w++) for (let d=0; d<5; d++) days.push(iso(add(start, w*7+d)));
   const o = open();
-  const imKal = s => items.filter(i => i.faellig===s && (!i.erledigt || s<T));
+  const imKal = s => items.filter(i => i.faellig===s && (s<T || (s===T ? aktiv(i) : !i.erledigt)));
   const jahr = parse(days[14]).getFullYear();
   let h = `<div class="blk-top"><b>${dm(days[0])} – ${dm(days[14])}${jahr}</b>${blk?`<button class="back" data-act="blk" data-n="0">Heute</button>`:''}</div>`;
   h += '<div class="wk-head">'+['Mo','Di','Mi','Do','Fr'].map(x=>`<span>${x}</span>`).join('')+'</div><div class="grid">';
@@ -137,9 +148,7 @@ function renderCal(){
   const nb = (n, txt, dis) => `<button class="blk-btn" data-act="blk" data-n="${n}"${dis?' disabled':''}>${txt}</button>`;
   h += `<div class="blk-nav">${nb(blk-1, ico.back+'3 Wochen zurück', blk<=-BLK_MAX)}${nb(blk+1, '3 Wochen weiter'+ico.fwd, blk>=BLK_MAX)}</div>`;
   h += '<div class="legend"><span class="pill k-ha">Hausaufgabe</span><span class="pill k-sa">Schularbeit</span><span class="pill k-test">Test</span><span class="pill k-learn">Kleiner Test</span></div>';
-  const overdue = o.filter(i => i.faellig<T);
-  const list = selDay ? byDue(imKal(selDay)) : blk ? byDue(items.filter(i => i.faellig>=days[0] && i.faellig<=days[14] && (!i.erledigt || i.faellig<T))) : byDue(o.filter(i => i.faellig>=T && i.faellig<=days[14]));
-  if (!selDay && !blk && overdue.length) h += `<div class="sec"><h3>Noch offen von früher</h3></div>` + byDue(overdue).map(row).join('');
+  const list = selDay ? byDue(imKal(selDay)) : blk ? byDue(items.filter(i => i.faellig>=days[0] && i.faellig<=days[14] && (i.faellig<T || (i.faellig===T ? aktiv(i) : !i.erledigt)))) : byDue(o.filter(i => i.faellig>=T && i.faellig<=days[14]));
   h += `<div class="sec" id="listTop"><h3>${selDay ? wdm(selDay) : blk ? 'In diesen 3 Wochen' : 'Was kommt'}</h3>${selDay?`<button class="back" data-act="all">${ico.back}Ganze Übersicht</button>`:''}</div>`;
   h += list.length ? list.map(row).join('') : `<div class="empty">${selDay?'An diesem Tag ist nichts fällig.':blk ? 'In diesen 3 Wochen ist nichts eingetragen.' : 'Nichts eingetragen. Tippe oben auf „+“.'}</div>`;
   $view.innerHTML = h;
